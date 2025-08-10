@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 const GRID_SIZE: usize = 10;
-const CELL_SIZE: f32 = 40.0;
+const CELL_SIZE: f32 = 30.0;
 const CELL_SPACING: f32 = 2.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -92,7 +92,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Battleship Tracker".to_string(),
-                resolution: (1200.0, 600.0).into(),
+                resolution: (1000.0, 700.0).into(),
                 ..default()
             }),
             ..default()
@@ -113,8 +113,9 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     let board_width = GRID_SIZE as f32 * (CELL_SIZE + CELL_SPACING);
-    let player_board_offset = -board_width / 2.0 - 50.0;
-    let opponent_board_offset = board_width / 2.0 + 50.0;
+    let shift_left = -board_width / 2.0;  // Shift everything left by half a board width
+    let player_board_offset = -board_width / 2.0 - 40.0 + shift_left;
+    let opponent_board_offset = board_width / 2.0 + 40.0 + shift_left;
 
     // Board labels - centered above each board
     commands.spawn((
@@ -124,7 +125,7 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         TextColor(Color::WHITE),
-        Transform::from_xyz(player_board_offset + board_width / 2.0, 250.0, 0.0),
+        Transform::from_xyz(player_board_offset + board_width / 2.0, 220.0, 0.0),
     ));
 
     commands.spawn((
@@ -134,7 +135,7 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         TextColor(Color::WHITE),
-        Transform::from_xyz(opponent_board_offset + board_width / 2.0, 250.0, 0.0),
+        Transform::from_xyz(opponent_board_offset + board_width / 2.0, 220.0, 0.0),
     ));
     
     // Add column labels (A-J) for both boards
@@ -151,7 +152,7 @@ fn setup(mut commands: Commands) {
             TextColor(Color::WHITE),
             Transform::from_xyz(
                 player_board_offset + i as f32 * (CELL_SIZE + CELL_SPACING) + CELL_SIZE / 2.0,
-                190.0,
+                180.0,
                 0.0
             ),
         ));
@@ -166,7 +167,7 @@ fn setup(mut commands: Commands) {
             TextColor(Color::WHITE),
             Transform::from_xyz(
                 opponent_board_offset + i as f32 * (CELL_SIZE + CELL_SPACING) + CELL_SIZE / 2.0,
-                190.0,
+                180.0,
                 0.0
             ),
         ));
@@ -186,7 +187,7 @@ fn setup(mut commands: Commands) {
             TextColor(Color::WHITE),
             Transform::from_xyz(
                 player_board_offset - 25.0,
-                i as f32 * (CELL_SIZE + CELL_SPACING) - 200.0 + CELL_SIZE / 2.0,
+                i as f32 * (CELL_SIZE + CELL_SPACING) - 150.0 + CELL_SIZE / 2.0,
                 0.0
             ),
         ));
@@ -201,7 +202,7 @@ fn setup(mut commands: Commands) {
             TextColor(Color::WHITE),
             Transform::from_xyz(
                 opponent_board_offset - 25.0,
-                i as f32 * (CELL_SIZE + CELL_SPACING) - 200.0 + CELL_SIZE / 2.0,
+                i as f32 * (CELL_SIZE + CELL_SPACING) - 150.0 + CELL_SIZE / 2.0,
                 0.0
             ),
         ));
@@ -210,7 +211,7 @@ fn setup(mut commands: Commands) {
     for y in 0..GRID_SIZE {
         for x in 0..GRID_SIZE {
             let x_pos = player_board_offset + x as f32 * (CELL_SIZE + CELL_SPACING) + CELL_SIZE / 2.0;
-            let y_pos = y as f32 * (CELL_SIZE + CELL_SPACING) - 200.0 + CELL_SIZE / 2.0;
+            let y_pos = y as f32 * (CELL_SIZE + CELL_SPACING) - 150.0 + CELL_SIZE / 2.0;
             
             commands.spawn((
                 Sprite {
@@ -237,7 +238,7 @@ fn setup(mut commands: Commands) {
     }
 
     let x_pos = player_board_offset + CELL_SIZE / 2.0;
-    let y_pos = -200.0 + CELL_SIZE / 2.0;
+    let y_pos = -150.0 + CELL_SIZE / 2.0;
     commands.spawn((
         Sprite {
             color: Color::srgba(1.0, 1.0, 0.0, 0.3),
@@ -255,7 +256,7 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         TextColor(Color::WHITE),
-        Transform::from_xyz(0.0, -320.0, 0.0),
+        Transform::from_xyz(0.0, -280.0, 0.0),
         StatusText,
     ));
     
@@ -266,7 +267,7 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         TextColor(Color::WHITE),
-        Transform::from_xyz(0.0, -360.0, 0.0),
+        Transform::from_xyz(0.0, -320.0, 0.0),
     ));
 }
 
@@ -432,14 +433,15 @@ fn update_selection_indicator(
 ) {
     if let Ok(mut transform) = query.single_mut() {
         let board_width = GRID_SIZE as f32 * (CELL_SIZE + CELL_SPACING);
+        let shift_left = -board_width / 2.0;
         let board_offset = if game_state.is_player_board {
-            -board_width / 2.0 - 50.0
+            -board_width / 2.0 - 40.0 + shift_left
         } else {
-            board_width / 2.0 + 50.0
+            board_width / 2.0 + 40.0 + shift_left
         };
 
         let x_pos = board_offset + game_state.selected_x as f32 * (CELL_SIZE + CELL_SPACING) + CELL_SIZE / 2.0;
-        let y_pos = game_state.selected_y as f32 * (CELL_SIZE + CELL_SPACING) - 200.0 + CELL_SIZE / 2.0;
+        let y_pos = game_state.selected_y as f32 * (CELL_SIZE + CELL_SPACING) - 150.0 + CELL_SIZE / 2.0;
         
         transform.translation.x = x_pos;
         transform.translation.y = y_pos;
