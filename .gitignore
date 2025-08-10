@@ -27,3 +27,12 @@ __pycache__/
 
 # Save games
 saves/
+
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc
+
+# Build artifacts
+*.dmg
+*.app/

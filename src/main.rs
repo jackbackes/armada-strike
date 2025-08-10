@@ -606,13 +606,24 @@ fn setup(mut commands: Commands) {
     ));
     
     commands.spawn((
-        Text2d::new("Controls:\nTab: Switch boards | H: Mark hit | Shift+H: Sinking hit | M: Mark miss | C: Clear cell | R: Reset all"),
+        Text2d::new("Controls:\nTab: Switch boards | H: Mark hit | Shift+H: Sinking hit | M: Mark miss | C: Clear cell | R: Reset all | ESC: Settings"),
         TextFont {
             font_size: 16.0,
             ..default()
         },
         TextColor(Color::WHITE),
         Transform::from_xyz(0.0, -320.0, 0.0),
+    ));
+    
+    // Add settings indicator in top-right corner
+    commands.spawn((
+        Text2d::new("ESC: ⚙"),
+        TextFont {
+            font_size: 20.0,
+            ..default()
+        },
+        TextColor(Color::srgb(0.7, 0.7, 0.7)),  // Light gray
+        Transform::from_xyz(460.0, 330.0, 0.0),  // Top-right corner
     ));
 }
 
@@ -1171,6 +1182,20 @@ fn spawn_settings_menu(commands: &mut Commands, settings: &GameSettings) {
                 ..default()
             },
             TextColor(Color::WHITE),
+            Node {
+                margin: UiRect::bottom(Val::Px(10.0)),
+                ..default()
+            },
+        ));
+        
+        // Exit instruction
+        parent.spawn((
+            Text::new("(Press ESC to close)"),
+            TextFont {
+                font_size: 14.0,
+                ..default()
+            },
+            TextColor(Color::srgb(0.6, 0.6, 0.6)),
             Node {
                 margin: UiRect::bottom(Val::Px(20.0)),
                 ..default()
