@@ -104,7 +104,116 @@ def generate_boom_sound():
     
     print("Generated hit.wav (boom sound)")
 
+def generate_place_sound():
+    """Generate a satisfying 'thunk' sound for placing ships"""
+    sample_rate = 22050
+    duration = 0.15
+    samples = int(sample_rate * duration)
+    
+    t = np.linspace(0, duration, samples)
+    
+    # Create a low frequency thump
+    thump_freq = 100
+    thump = np.sin(2 * np.pi * thump_freq * t)
+    
+    # Add a higher frequency click at the beginning
+    click_freq = 800
+    click_duration = 0.02
+    click_samples = int(click_duration * sample_rate)
+    click = np.zeros(samples)
+    click[:click_samples] = np.sin(2 * np.pi * click_freq * t[:click_samples])
+    
+    # Combine with different envelopes
+    thump_envelope = np.exp(-t * 12)
+    click_envelope = np.zeros(samples)
+    click_envelope[:click_samples] = np.exp(-t[:click_samples] * 80)
+    
+    # Mix the sounds
+    sound = thump * thump_envelope * 0.7 + click * click_envelope * 0.3
+    
+    # Add a subtle square wave for 8-bit feel
+    square = np.sign(np.sin(2 * np.pi * thump_freq * t)) * 0.1
+    sound = sound + square * thump_envelope
+    
+    # Normalize and convert to 16-bit
+    sound = np.clip(sound, -1, 1)
+    sound = (sound * 32767 * 0.8).astype(np.int16)
+    
+    # Write WAV file
+    with wave.open('assets/sounds/place.wav', 'wb') as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(sound.tobytes())
+    
+    print("Generated place.wav (ship placement sound)")
+
+def generate_sink_sound():
+    """Generate a dramatic sinking sound with bubbles and descent"""
+    sample_rate = 22050
+    duration = 1.0  # Longer for dramatic effect
+    samples = int(sample_rate * duration)
+    
+    t = np.linspace(0, duration, samples)
+    
+    # Descending tone (like something sinking)
+    start_freq = 400
+    end_freq = 50
+    freq_sweep = np.linspace(start_freq, end_freq, samples)
+    sinking_tone = np.sin(2 * np.pi * freq_sweep * t)
+    
+    # Add bubble sounds (random bursts)
+    bubbles = np.zeros(samples)
+    num_bubbles = 8
+    for i in range(num_bubbles):
+        bubble_start = int(np.random.uniform(0.1, 0.7) * samples)
+        bubble_duration = int(0.05 * sample_rate)
+        if bubble_start + bubble_duration < samples:
+            bubble_freq = np.random.uniform(600, 1200)
+            bubble_t = np.linspace(0, 0.05, bubble_duration)
+            bubble_sound = np.sin(2 * np.pi * bubble_freq * bubble_t) * np.exp(-bubble_t * 30)
+            bubbles[bubble_start:bubble_start + bubble_duration] += bubble_sound * 0.3
+    
+    # Water splash at the beginning
+    splash_duration = 0.15
+    splash_samples = int(splash_duration * sample_rate)
+    splash = np.random.normal(0, 1, splash_samples) * 0.5
+    # Low-pass filter effect
+    for _ in range(3):
+        splash = np.convolve(splash, np.ones(3)/3, mode='same')
+    
+    # Combine everything
+    sound = np.zeros(samples)
+    sound[:splash_samples] += splash
+    sound += sinking_tone * 0.6
+    sound += bubbles
+    
+    # Apply envelope
+    envelope = np.ones(samples)
+    envelope[:int(0.1 * sample_rate)] = np.linspace(0, 1, int(0.1 * sample_rate))  # Fade in
+    envelope[int(0.8 * sample_rate):] = np.linspace(1, 0, samples - int(0.8 * sample_rate))  # Fade out
+    sound = sound * envelope
+    
+    # Add 8-bit quantization
+    levels = 64
+    sound = np.round(sound * levels) / levels
+    
+    # Normalize and convert to 16-bit
+    sound = np.clip(sound, -1, 1)
+    sound = (sound * 32767 * 0.7).astype(np.int16)
+    
+    # Write WAV file
+    with wave.open('assets/sounds/sink.wav', 'wb') as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(sound.tobytes())
+    
+    print("Generated sink.wav (ship sinking sound)")
+
 if __name__ == "__main__":
     generate_pew_sound()
     generate_boom_sound()
+    generate_place_sound()
+    generate_sink_sound()
     print("Sound effects generated successfully!")

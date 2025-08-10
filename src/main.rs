@@ -75,10 +75,22 @@ struct CellInfoText;
 #[derive(Component)]
 struct SettingsMenu;
 
+#[derive(Component)]
+struct HitEffect {
+    timer: Timer,
+}
+
+#[derive(Component)]
+struct MissEffect {
+    timer: Timer,
+}
+
 #[derive(Resource)]
 struct SoundAssets {
     hit: Handle<AudioSource>,
     miss: Handle<AudioSource>,
+    place: Handle<AudioSource>,
+    sink: Handle<AudioSource>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -213,6 +225,23 @@ impl GameState {
             }
         }
         false
+    }
+    
+    fn is_ship_sunk(&self, ship: &PlacedShip) -> bool {
+        if ship.is_horizontal {
+            for i in 0..ship.ship_type.size() {
+                if self.player_board[ship.y][ship.x + i] != CellState::Hit {
+                    return false;
+                }
+            }
+        } else {
+            for i in 0..ship.ship_type.size() {
+                if self.player_board[ship.y + i][ship.x] != CellState::Hit {
+                    return false;
+                }
+            }
+        }
+        true
     }
     
     fn clear_entire_ship(&mut self, ship: &PlacedShip) {
@@ -369,6 +398,7 @@ fn main() {
             update_cell_info,
             show_ship_preview,
             handle_settings_menu,
+            animate_effects,
         ))
         .run();
 }
@@ -379,10 +409,14 @@ fn load_sounds(
 ) {
     let hit_sound = asset_server.load("sounds/hit.wav");
     let miss_sound = asset_server.load("sounds/miss.wav");
+    let place_sound = asset_server.load("sounds/place.wav");
+    let sink_sound = asset_server.load("sounds/sink.wav");
     
     commands.insert_resource(SoundAssets {
         hit: hit_sound,
         miss: miss_sound,
+        place: place_sound,
+        sink: sink_sound,
     });
     
     println!("Sound effects loaded");
@@ -505,9 +539,16 @@ fn setup(mut commands: Commands) {
             let x_pos = player_board_offset + x as f32 * (CELL_SIZE + CELL_SPACING) + CELL_SIZE / 2.0;
             let y_pos = y as f32 * (CELL_SIZE + CELL_SPACING) - 150.0 + CELL_SIZE / 2.0;
             
+            // Use water colors from pixel art palette
+            let water_color = if (x + y) % 2 == 0 {
+                Color::srgb(0.102, 0.302, 0.478)  // #1a4d7a - dark water
+            } else {
+                Color::srgb(0.145, 0.388, 0.627)  // #2563a0 - light water
+            };
+            
             commands.spawn((
                 Sprite {
-                    color: Color::srgb(0.3, 0.3, 0.3),
+                    color: water_color,
                     custom_size: Some(Vec2::new(CELL_SIZE, CELL_SIZE)),
                     ..default()
                 },
@@ -519,7 +560,7 @@ fn setup(mut commands: Commands) {
             
             commands.spawn((
                 Sprite {
-                    color: Color::srgb(0.3, 0.3, 0.3),
+                    color: water_color,
                     custom_size: Some(Vec2::new(CELL_SIZE, CELL_SIZE)),
                     ..default()
                 },
@@ -533,7 +574,7 @@ fn setup(mut commands: Commands) {
     let y_pos = -150.0 + CELL_SIZE / 2.0;
     commands.spawn((
         Sprite {
-            color: Color::srgba(1.0, 1.0, 0.0, 0.3),
+            color: Color::srgba(0.267, 1.0, 0.267, 0.3),  // Green highlight like in SVG
             custom_size: Some(Vec2::new(CELL_SIZE + 4.0, CELL_SIZE + 4.0)),
             ..default()
         },
@@ -565,7 +606,7 @@ fn setup(mut commands: Commands) {
     ));
     
     commands.spawn((
-        Text2d::new("Controls:\nTab: Switch boards | H: Mark hit | M: Mark miss | C: Clear cell | R: Reset all"),
+        Text2d::new("Controls:\nTab: Switch boards | H: Mark hit | Shift+H: Sinking hit | M: Mark miss | C: Clear cell | R: Reset all"),
         TextFont {
             font_size: 16.0,
             ..default()
@@ -712,6 +753,11 @@ fn handle_input(
                         is_horizontal,
                     });
                     game_state.placement_mode = PlacementMode::Playing;
+                    
+                    // Play placement sound
+                    if let Some(ref sounds) = sounds {
+                        play_sound(&mut commands, sounds.place.clone(), &settings);
+                    }
                 }
             }
         }
@@ -748,14 +794,36 @@ fn handle_input(
                 if keyboard.just_pressed(KeyCode::KeyH) {
                     if game_state.player_board[y][x] == CellState::Ship {
                         game_state.player_board[y][x] = CellState::Hit;
+                        
+                        // Spawn hit effect
+                        spawn_hit_effect(&mut commands, x, y, true);
+                        
+                        // Check if this hit sinks a ship
+                        let mut ship_sunk = false;
+                        if let Some(ship) = game_state.get_ship_info_at(x, y).cloned() {
+                            if game_state.is_ship_sunk(&ship) {
+                                ship_sunk = true;
+                                println!("You sunk the {}!", ship.ship_type.name());
+                            }
+                        }
+                        
+                        // Play appropriate sound
                         if let Some(ref sounds) = sounds {
-                            play_sound(&mut commands, sounds.hit.clone(), &settings);
+                            if ship_sunk {
+                                play_sound(&mut commands, sounds.sink.clone(), &settings);
+                            } else {
+                                play_sound(&mut commands, sounds.hit.clone(), &settings);
+                            }
                         }
                     }
                 }
                 if keyboard.just_pressed(KeyCode::KeyM) {
                     if game_state.player_board[y][x] != CellState::Ship {
                         game_state.player_board[y][x] = CellState::Miss;
+                        
+                        // Spawn miss effect
+                        spawn_miss_effect(&mut commands, x, y, true);
+                        
                         if let Some(ref sounds) = sounds {
                             play_sound(&mut commands, sounds.miss.clone(), &settings);
                         }
@@ -787,12 +855,28 @@ fn handle_input(
             } else {
                 if keyboard.just_pressed(KeyCode::KeyH) {
                     game_state.opponent_board[y][x] = CellState::Hit;
-                    if let Some(ref sounds) = sounds {
-                        play_sound(&mut commands, sounds.hit.clone(), &settings);
+                    
+                    // Spawn hit effect
+                    spawn_hit_effect(&mut commands, x, y, false);
+                    
+                    // Use Shift+H to indicate a sinking hit on opponent's board
+                    if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
+                        println!("Enemy ship sunk!");
+                        if let Some(ref sounds) = sounds {
+                            play_sound(&mut commands, sounds.sink.clone(), &settings);
+                        }
+                    } else {
+                        if let Some(ref sounds) = sounds {
+                            play_sound(&mut commands, sounds.hit.clone(), &settings);
+                        }
                     }
                 }
                 if keyboard.just_pressed(KeyCode::KeyM) {
                     game_state.opponent_board[y][x] = CellState::Miss;
+                    
+                    // Spawn miss effect  
+                    spawn_miss_effect(&mut commands, x, y, false);
+                    
                     if let Some(ref sounds) = sounds {
                         play_sound(&mut commands, sounds.miss.clone(), &settings);
                     }
@@ -907,11 +991,54 @@ fn update_cell_colors(
             game_state.opponent_board[cell.y][cell.x]
         };
 
+        // Use pixel art color palette from SVG
         sprite.color = match state {
-            CellState::Empty => Color::srgb(0.3, 0.3, 0.3),
-            CellState::Ship => Color::srgb(0.5, 0.5, 0.5),
-            CellState::Hit => Color::srgb(1.0, 0.0, 0.0),
-            CellState::Miss => Color::srgb(0.0, 0.0, 1.0),
+            CellState::Empty => {
+                // Water tile effect with checkerboard pattern
+                if (cell.x + cell.y) % 2 == 0 {
+                    Color::srgb(0.102, 0.302, 0.478)  // #1a4d7a - dark water
+                } else {
+                    Color::srgb(0.145, 0.388, 0.627)  // #2563a0 - light water
+                }
+            },
+            CellState::Ship => {
+                // Ship colors based on type from SVG palette
+                if cell.is_player_board {
+                    if let Some(ship_type) = game_state.get_ship_at(cell.x, cell.y) {
+                        match ship_type {
+                            ShipType::Submarine => Color::srgb(0.290, 0.415, 0.290),  // #4a6a4a - green submarine
+                            ShipType::Destroyer => Color::srgb(0.353, 0.353, 0.478),  // #5a5a7a - gray destroyer
+                            ShipType::Cruiser => Color::srgb(0.353, 0.353, 0.478),    // #5a5a7a - navy cruiser
+                            ShipType::Battleship => Color::srgb(0.415, 0.353, 0.353), // #6a5a5a - battleship gray
+                            ShipType::Carrier => Color::srgb(0.290, 0.290, 0.353),    // #4a4a5a - carrier blue-gray
+                        }
+                    } else {
+                        Color::srgb(0.353, 0.353, 0.478)  // Default ship gray
+                    }
+                } else {
+                    Color::srgb(0.353, 0.353, 0.478)  // Unknown enemy ship
+                }
+            },
+            CellState::Hit => {
+                // Darker ship color with red tint for hit ships
+                if cell.is_player_board {
+                    if let Some(_) = game_state.get_ship_at(cell.x, cell.y) {
+                        Color::srgb(0.478, 0.200, 0.200)  // Dark red-gray for hit ship
+                    } else {
+                        Color::srgb(1.0, 0.267, 0.267)  // #ff4444
+                    }
+                } else {
+                    Color::srgb(1.0, 0.267, 0.267)  // #ff4444
+                }
+            },
+            CellState::Miss => {
+                // Water with white splash overlay effect
+                if (cell.x + cell.y) % 2 == 0 {
+                    Color::srgb(0.251, 0.451, 0.588)  // Lighter water for miss
+                } else {
+                    Color::srgb(0.302, 0.502, 0.706)  // Lighter water for miss
+                }
+            },
         };
     }
 }
@@ -1200,6 +1327,158 @@ fn handle_settings_menu(
     }
 }
 
+fn spawn_hit_effect(commands: &mut Commands, x: usize, y: usize, is_player_board: bool) {
+    let board_width = GRID_SIZE as f32 * (CELL_SIZE + CELL_SPACING);
+    let shift_left = -board_width / 2.0;
+    let board_offset = if is_player_board {
+        -board_width / 2.0 - 40.0 + shift_left
+    } else {
+        board_width / 2.0 + 40.0 + shift_left
+    };
+    
+    let x_pos = board_offset + x as f32 * (CELL_SIZE + CELL_SPACING) + CELL_SIZE / 2.0;
+    let y_pos = y as f32 * (CELL_SIZE + CELL_SPACING) - 150.0 + CELL_SIZE / 2.0;
+    
+    // Spawn layered explosion effect like in SVG
+    // Outer red circle
+    commands.spawn((
+        Sprite {
+            color: Color::srgba(1.0, 0.267, 0.267, 0.8),  // #ff4444 with transparency
+            custom_size: Some(Vec2::new(CELL_SIZE * 0.8, CELL_SIZE * 0.8)),
+            ..default()
+        },
+        Transform::from_xyz(x_pos, y_pos, 2.0),
+        HitEffect {
+            timer: Timer::from_seconds(0.5, TimerMode::Once),
+        },
+    ));
+    
+    // Middle orange circle
+    commands.spawn((
+        Sprite {
+            color: Color::srgba(1.0, 0.533, 0.267, 0.9),  // #ff8844
+            custom_size: Some(Vec2::new(CELL_SIZE * 0.5, CELL_SIZE * 0.5)),
+            ..default()
+        },
+        Transform::from_xyz(x_pos, y_pos, 2.1),
+        HitEffect {
+            timer: Timer::from_seconds(0.4, TimerMode::Once),
+        },
+    ));
+    
+    // Inner yellow circle
+    commands.spawn((
+        Sprite {
+            color: Color::srgba(1.0, 0.667, 0.267, 1.0),  // #ffaa44
+            custom_size: Some(Vec2::new(CELL_SIZE * 0.25, CELL_SIZE * 0.25)),
+            ..default()
+        },
+        Transform::from_xyz(x_pos, y_pos, 2.2),
+        HitEffect {
+            timer: Timer::from_seconds(0.3, TimerMode::Once),
+        },
+    ));
+}
+
+fn spawn_miss_effect(commands: &mut Commands, x: usize, y: usize, is_player_board: bool) {
+    let board_width = GRID_SIZE as f32 * (CELL_SIZE + CELL_SPACING);
+    let shift_left = -board_width / 2.0;
+    let board_offset = if is_player_board {
+        -board_width / 2.0 - 40.0 + shift_left
+    } else {
+        board_width / 2.0 + 40.0 + shift_left
+    };
+    
+    let x_pos = board_offset + x as f32 * (CELL_SIZE + CELL_SPACING) + CELL_SIZE / 2.0;
+    let y_pos = y as f32 * (CELL_SIZE + CELL_SPACING) - 150.0 + CELL_SIZE / 2.0;
+    
+    // Spawn splash effect with ring like in SVG
+    // Inner white splash
+    commands.spawn((
+        Sprite {
+            color: Color::srgba(1.0, 1.0, 1.0, 0.8),  // White splash center
+            custom_size: Some(Vec2::new(CELL_SIZE * 0.5, CELL_SIZE * 0.5)),
+            ..default()
+        },
+        Transform::from_xyz(x_pos, y_pos, 2.0),
+        MissEffect {
+            timer: Timer::from_seconds(0.4, TimerMode::Once),
+        },
+    ));
+    
+    // Outer splash ring (will expand)
+    commands.spawn((
+        Sprite {
+            color: Color::srgba(1.0, 1.0, 1.0, 0.6),  // White ring
+            custom_size: Some(Vec2::new(CELL_SIZE * 0.75, CELL_SIZE * 0.75)),
+            ..default()
+        },
+        Transform::from_xyz(x_pos, y_pos, 1.9),
+        MissEffect {
+            timer: Timer::from_seconds(0.5, TimerMode::Once),
+        },
+    ));
+}
+
+fn animate_effects(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut hit_query: Query<(Entity, &mut HitEffect, &mut Sprite, &Transform), Without<MissEffect>>,
+    mut miss_query: Query<(Entity, &mut MissEffect, &mut Sprite, &Transform), Without<HitEffect>>,
+) {
+    // Animate hit effects with different speeds based on layer
+    for (entity, mut effect, mut sprite, transform) in hit_query.iter_mut() {
+        effect.timer.tick(time.delta());
+        
+        let progress = effect.timer.fraction();
+        
+        // Different animations based on z-layer (inner vs outer explosion)
+        let base_size = if transform.translation.z > 2.1 {
+            CELL_SIZE * 0.25  // Inner circle
+        } else if transform.translation.z > 2.0 {
+            CELL_SIZE * 0.5   // Middle circle
+        } else {
+            CELL_SIZE * 0.8   // Outer circle
+        };
+        
+        let scale = 1.0 + progress * 0.6;  // Expand
+        let alpha = (1.0 - progress).max(0.0);  // Fade out
+        
+        let current_alpha = sprite.color.alpha();
+        sprite.color.set_alpha(alpha * current_alpha);
+        sprite.custom_size = Some(Vec2::new(base_size * scale, base_size * scale));
+        
+        if effect.timer.finished() {
+            commands.entity(entity).despawn();
+        }
+    }
+    
+    // Animate miss effects with ripple expansion
+    for (entity, mut effect, mut sprite, transform) in miss_query.iter_mut() {
+        effect.timer.tick(time.delta());
+        
+        let progress = effect.timer.fraction();
+        
+        // Different animations for inner splash vs outer ring
+        let (base_size, expansion) = if transform.translation.z >= 2.0 {
+            (CELL_SIZE * 0.5, 0.2)  // Inner splash - less expansion
+        } else {
+            (CELL_SIZE * 0.75, 0.5)  // Outer ring - more expansion
+        };
+        
+        let scale = 1.0 + progress * expansion;
+        let alpha = (1.0 - progress * 0.8).max(0.0);  // Fade out
+        
+        let current_alpha = sprite.color.alpha();
+        sprite.color.set_alpha(alpha * current_alpha);
+        sprite.custom_size = Some(Vec2::new(base_size * scale, base_size * scale));
+        
+        if effect.timer.finished() {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
 fn show_ship_preview(
     game_state: Res<GameState>,
     mut query: Query<(&Cell, &mut Sprite)>,
@@ -1225,9 +1504,9 @@ fn show_ship_preview(
             
             if is_preview && game_state.player_board[cell.y][cell.x] == CellState::Empty {
                 sprite.color = if can_place {
-                    Color::srgba(0.0, 1.0, 0.0, 0.5)
+                    Color::srgba(0.267, 1.0, 0.267, 0.5)  // #44ff44 - Valid placement green from SVG
                 } else {
-                    Color::srgba(1.0, 0.0, 0.0, 0.5)
+                    Color::srgba(1.0, 0.267, 0.267, 0.5)  // #ff4444 - Invalid placement red from SVG
                 };
             }
         }

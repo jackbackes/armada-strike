@@ -1,0 +1,193 @@
+<svg viewBox="0 0 800 1200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Define patterns for water animation -->
+  <defs>
+    <!-- Water tile pattern -->
+    <pattern id="waterTile" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
+      <rect width="32" height="32" fill="#1a4d7a"/>
+      <rect x="0" y="0" width="16" height="16" fill="#2563a0"/>
+      <rect x="16" y="16" width="16" height="16" fill="#2563a0"/>
+      <rect x="8" y="8" width="16" height="16" fill="#1f5a8a" opacity="0.5"/>
+    </pattern>
+    
+    <!-- Grid pattern -->
+    <pattern id="gridPattern" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
+      <rect width="32" height="32" fill="none" stroke="#0a2540" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="1200" fill="#0a1929"/>
+  
+  <!-- Title -->
+  <text x="400" y="40" font-family="monospace" font-size="24" fill="#ffffff" text-anchor="middle" font-weight="bold">BATTLESHIP PIXEL ART ASSETS</text>
+  
+  <!-- Water Tiles Section -->
+  <text x="40" y="100" font-family="monospace" font-size="16" fill="#ffffff">Water Tiles (32x32):</text>
+  
+  <!-- Empty water -->
+  <g transform="translate(40, 120)">
+    <rect width="32" height="32" fill="#1a4d7a"/>
+    <rect x="0" y="0" width="16" height="16" fill="#2563a0"/>
+    <rect x="16" y="16" width="16" height="16" fill="#2563a0"/>
+    <rect x="8" y="8" width="16" height="16" fill="#1f5a8a" opacity="0.5"/>
+    <text x="16" y="50" font-family="monospace" font-size="10" fill="#ffffff" text-anchor="middle">Empty</text>
+  </g>
+  
+  <!-- Hit water (miss) -->
+  <g transform="translate(100, 120)">
+    <rect width="32" height="32" fill="#1a4d7a"/>
+    <rect x="0" y="0" width="16" height="16" fill="#2563a0"/>
+    <rect x="16" y="16" width="16" height="16" fill="#2563a0"/>
+    <!-- White splash -->
+    <circle cx="16" cy="16" r="8" fill="#ffffff" opacity="0.8"/>
+    <circle cx="16" cy="16" r="12" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.6"/>
+    <text x="16" y="50" font-family="monospace" font-size="10" fill="#ffffff" text-anchor="middle">Miss</text>
+  </g>
+  
+  <!-- Ship Section -->
+  <text x="40" y="220" font-family="monospace" font-size="16" fill="#ffffff">Ships (Horizontal):</text>
+  
+  <!-- Destroyer (2 cells) -->
+  <g transform="translate(40, 240)">
+    <rect width="64" height="32" fill="#3a3a3a"/>
+    <rect x="2" y="2" width="60" height="28" fill="#5a5a5a"/>
+    <rect x="4" y="8" width="56" height="16" fill="#7a7a7a"/>
+    <!-- Details -->
+    <rect x="8" y="12" width="8" height="8" fill="#9a9a9a"/>
+    <rect x="48" y="12" width="8" height="8" fill="#9a9a9a"/>
+    <circle cx="32" cy="16" r="4" fill="#ff6b6b"/>
+    <text x="32" y="50" font-family="monospace" font-size="10" fill="#ffffff" text-anchor="middle">Destroyer</text>
+  </g>
+  
+  <!-- Submarine (3 cells) -->
+  <g transform="translate(40, 300)">
+    <rect width="96" height="32" fill="#2a4a2a"/>
+    <rect x="2" y="2" width="92" height="28" fill="#3a5a3a"/>
+    <ellipse cx="48" cy="16" rx="44" ry="12" fill="#4a6a4a"/>
+    <!-- Conning tower -->
+    <rect x="44" y="8" width="8" height="16" fill="#5a7a5a"/>
+    <!-- Periscope -->
+    <rect x="47" y="4" width="2" height="8" fill="#7a9a7a"/>
+    <text x="48" y="50" font-family="monospace" font-size="10" fill="#ffffff" text-anchor="middle">Submarine</text>
+  </g>
+  
+  <!-- Cruiser (3 cells) -->
+  <g transform="translate(40, 360)">
+    <rect width="96" height="32" fill="#3a3a5a"/>
+    <rect x="2" y="2" width="92" height="28" fill="#4a4a6a"/>
+    <rect x="4" y="8" width="88" height="16" fill="#5a5a7a"/>
+    <!-- Turrets -->
+    <rect x="16" y="10" width="12" height="12" fill="#7a7a9a"/>
+    <rect x="44" y="10" width="12" height="12" fill="#7a7a9a"/>
+    <rect x="68" y="10" width="12" height="12" fill="#7a7a9a"/>
+    <text x="48" y="50" font-family="monospace" font-size="10" fill="#ffffff" text-anchor="middle">Cruiser</text>
+  </g>
+  
+  <!-- Battleship (4 cells) -->
+  <g transform="translate(40, 420)">
+    <rect width="128" height="32" fill="#4a3a3a"/>
+    <rect x="2" y="2" width="124" height="28" fill="#5a4a4a"/>
+    <rect x="4" y="6" width="120" height="20" fill="#6a5a5a"/>
+    <!-- Main turrets -->
+    <rect x="16" y="8" width="16" height="16" fill="#8a7a7a"/>
+    <rect x="40" y="8" width="16" height="16" fill="#8a7a7a"/>
+    <rect x="72" y="8" width="16" height="16" fill="#8a7a7a"/>
+    <rect x="96" y="8" width="16" height="16" fill="#8a7a7a"/>
+    <!-- Bridge -->
+    <rect x="56" y="4" width="16" height="24" fill="#9a8a8a"/>
+    <text x="64" y="50" font-family="monospace" font-size="10" fill="#ffffff" text-anchor="middle">Battleship</text>
+  </g>
+  
+  <!-- Hit States -->
+  <text x="40" y="520" font-family="monospace" font-size="16" fill="#ffffff">Hit States:</text>
+  
+  <!-- Ship hit -->
+  <g transform="translate(40, 540)">
+    <rect width="32" height="32" fill="#5a4a4a"/>
+    <rect x="2" y="2" width="28" height="28" fill="#6a5a5a"/>
+    <!-- Explosion effect -->
+    <circle cx="16" cy="16" r="10" fill="#ff4444" opacity="0.8"/>
+    <circle cx="16" cy="16" r="6" fill="#ff8844" opacity="0.9"/>
+    <circle cx="16" cy="16" r="3" fill="#ffaa44"/>
+    <text x="16" y="50" font-family="monospace" font-size="10" fill="#ffffff" text-anchor="middle">Hit</text>
+  </g>
+  
+  <!-- Sunk ship -->
+  <g transform="translate(100, 540)">
+    <rect width="32" height="32" fill="#2a2a2a"/>
+    <rect x="2" y="2" width="28" height="28" fill="#3a3a3a" opacity="0.5"/>
+    <!-- X mark -->
+    <line x1="8" y1="8" x2="24" y2="24" stroke="#ff4444" stroke-width="3"/>
+    <line x1="24" y1="8" x2="8" y2="24" stroke="#ff4444" stroke-width="3"/>
+    <text x="16" y="50" font-family="monospace" font-size="10" fill="#ffffff" text-anchor="middle">Sunk</text>
+  </g>
+  
+  <!-- UI Elements -->
+  <text x="40" y="640" font-family="monospace" font-size="16" fill="#ffffff">UI Elements:</text>
+  
+  <!-- Cell highlight -->
+  <g transform="translate(40, 660)">
+    <rect width="32" height="32" fill="none" stroke="#44ff44" stroke-width="2"/>
+    <rect x="4" y="4" width="24" height="24" fill="#44ff44" opacity="0.2"/>
+    <text x="16" y="50" font-family="monospace" font-size="10" fill="#ffffff" text-anchor="middle">Hover</text>
+  </g>
+  
+  <!-- Target cursor -->
+  <g transform="translate(100, 660)">
+    <rect width="32" height="32" fill="none"/>
+    <circle cx="16" cy="16" r="12" fill="none" stroke="#ff4444" stroke-width="2"/>
+    <line x1="16" y1="2" x2="16" y2="30" stroke="#ff4444" stroke-width="2"/>
+    <line x1="2" y1="16" x2="30" y2="16" stroke="#ff4444" stroke-width="2"/>
+    <text x="16" y="50" font-family="monospace" font-size="10" fill="#ffffff" text-anchor="middle">Target</text>
+  </g>
+  
+  <!-- Grid Example -->
+  <text x="40" y="760" font-family="monospace" font-size="16" fill="#ffffff">Grid Example (5x5):</text>
+  <g transform="translate(40, 780)">
+    <!-- Water background -->
+    <rect width="160" height="160" fill="url(#waterTile)"/>
+    <!-- Grid overlay -->
+    <rect width="160" height="160" fill="url(#gridPattern)"/>
+    
+    <!-- Sample ship placement -->
+    <g transform="translate(32, 64)">
+      <rect width="96" height="32" fill="#4a4a6a"/>
+      <rect x="2" y="2" width="92" height="28" fill="#5a5a7a"/>
+    </g>
+    
+    <!-- Sample hits -->
+    <g transform="translate(64, 32)">
+      <circle cx="16" cy="16" r="8" fill="#ffffff" opacity="0.8"/>
+    </g>
+    
+    <g transform="translate(96, 64)">
+      <circle cx="16" cy="16" r="10" fill="#ff4444" opacity="0.8"/>
+      <circle cx="16" cy="16" r="6" fill="#ff8844" opacity="0.9"/>
+    </g>
+  </g>
+  
+  <!-- Color Palette -->
+  <text x="40" y="980" font-family="monospace" font-size="16" fill="#ffffff">Color Palette:</text>
+  <g transform="translate(40, 1000)">
+    <rect x="0" y="0" width="32" height="32" fill="#1a4d7a"/>
+    <text x="16" y="45" font-family="monospace" font-size="8" fill="#ffffff" text-anchor="middle">Water</text>
+    
+    <rect x="40" y="0" width="32" height="32" fill="#5a5a7a"/>
+    <text x="56" y="45" font-family="monospace" font-size="8" fill="#ffffff" text-anchor="middle">Ship</text>
+    
+    <rect x="80" y="0" width="32" height="32" fill="#ff4444"/>
+    <text x="96" y="45" font-family="monospace" font-size="8" fill="#ffffff" text-anchor="middle">Hit</text>
+    
+    <rect x="120" y="0" width="32" height="32" fill="#44ff44"/>
+    <text x="136" y="45" font-family="monospace" font-size="8" fill="#ffffff" text-anchor="middle">Valid</text>
+    
+    <rect x="160" y="0" width="32" height="32" fill="#ffffff"/>
+    <text x="176" y="45" font-family="monospace" font-size="8" fill="#ffffff" text-anchor="middle">Miss</text>
+  </g>
+  
+  <!-- Usage Notes -->
+  <text x="40" y="1100" font-family="monospace" font-size="14" fill="#ffffff">Implementation Notes:</text>
+  <text x="40" y="1120" font-family="monospace" font-size="12" fill="#aaaaaa">• Each cell is 32x32 pixels for crisp display</text>
+  <text x="40" y="1140" font-family="monospace" font-size="12" fill="#aaaaaa">• Ships can be rotated 90° for vertical placement</text>
+  <text x="40" y="1160" font-family="monospace" font-size="12" fill="#aaaaaa">• Layer order: Water → Grid → Ships → Effects</text>
+</svg>
