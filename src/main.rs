@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use bevy::audio::{PlaybackSettings, Volume};
 use serde::{Deserialize, Serialize};
 use rand::prelude::*;
 use rand::seq::SliceRandom;
@@ -74,6 +75,12 @@ struct CellInfoText;
 #[derive(Component)]
 struct SettingsMenu;
 
+#[derive(Resource)]
+struct SoundAssets {
+    hit: Handle<AudioSource>,
+    miss: Handle<AudioSource>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PlacedShip {
     ship_type: ShipType,
@@ -96,6 +103,8 @@ struct GameSettings {
     show_settings: bool,
     current_save: Option<String>,
     saves: Vec<SaveGame>,
+    sound_enabled: bool,
+    sound_volume: f32,
 }
 
 impl Default for GameSettings {
@@ -104,6 +113,8 @@ impl Default for GameSettings {
             show_settings: false,
             current_save: None,
             saves: Vec::new(),
+            sound_enabled: true,
+            sound_volume: 0.7,
         }
     }
 }
@@ -304,7 +315,7 @@ fn main() {
         }))
         .init_resource::<GameState>()
         .init_resource::<GameSettings>()
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup, load_sounds))
         .add_systems(Update, (
             handle_input,
             handle_mouse_click,
@@ -316,6 +327,34 @@ fn main() {
             handle_settings_menu,
         ))
         .run();
+}
+
+fn load_sounds(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    let hit_sound = asset_server.load("sounds/hit.wav");
+    let miss_sound = asset_server.load("sounds/miss.wav");
+    
+    commands.insert_resource(SoundAssets {
+        hit: hit_sound,
+        miss: miss_sound,
+    });
+    
+    println!("Sound effects loaded");
+}
+
+fn play_sound(
+    commands: &mut Commands,
+    sound: Handle<AudioSource>,
+    settings: &GameSettings,
+) {
+    if settings.sound_enabled {
+        commands.spawn((
+            AudioPlayer(sound),
+            PlaybackSettings::DESPAWN.with_volume(Volume::Linear(settings.sound_volume)),
+        ));
+    }
 }
 
 fn setup(mut commands: Commands) {
@@ -497,6 +536,7 @@ fn handle_input(
     mut game_state: ResMut<GameState>,
     mut settings: ResMut<GameSettings>,
     mut commands: Commands,
+    sounds: Option<Res<SoundAssets>>,
 ) {
     // Toggle settings menu with Escape
     if keyboard.just_pressed(KeyCode::Escape) {
@@ -516,6 +556,17 @@ fn handle_input(
     
     // Load specific save with number keys when settings menu is open
     if settings.show_settings {
+        // Toggle sound with S key
+        if keyboard.just_pressed(KeyCode::KeyS) {
+            settings.sound_enabled = !settings.sound_enabled;
+            println!("Sound {}", if settings.sound_enabled { "enabled" } else { "disabled" });
+            // Refresh the settings menu to show updated state
+            despawn_settings_menu(&mut commands);
+            settings.load_all_saves();
+            spawn_settings_menu(&mut commands, &settings);
+            return;
+        }
+        
         for i in 1..=5 {
             let key = match i {
                 1 => KeyCode::Digit1,
@@ -653,11 +704,17 @@ fn handle_input(
                 if keyboard.just_pressed(KeyCode::KeyH) {
                     if game_state.player_board[y][x] == CellState::Ship {
                         game_state.player_board[y][x] = CellState::Hit;
+                        if let Some(ref sounds) = sounds {
+                            play_sound(&mut commands, sounds.hit.clone(), &settings);
+                        }
                     }
                 }
                 if keyboard.just_pressed(KeyCode::KeyM) {
                     if game_state.player_board[y][x] != CellState::Ship {
                         game_state.player_board[y][x] = CellState::Miss;
+                        if let Some(ref sounds) = sounds {
+                            play_sound(&mut commands, sounds.miss.clone(), &settings);
+                        }
                     }
                 }
                 if keyboard.just_pressed(KeyCode::KeyC) {
@@ -666,9 +723,15 @@ fn handle_input(
             } else {
                 if keyboard.just_pressed(KeyCode::KeyH) {
                     game_state.opponent_board[y][x] = CellState::Hit;
+                    if let Some(ref sounds) = sounds {
+                        play_sound(&mut commands, sounds.hit.clone(), &settings);
+                    }
                 }
                 if keyboard.just_pressed(KeyCode::KeyM) {
                     game_state.opponent_board[y][x] = CellState::Miss;
+                    if let Some(ref sounds) = sounds {
+                        play_sound(&mut commands, sounds.miss.clone(), &settings);
+                    }
                 }
                 if keyboard.just_pressed(KeyCode::KeyC) {
                     game_state.opponent_board[y][x] = CellState::Empty;
@@ -920,7 +983,7 @@ fn spawn_settings_menu(commands: &mut Commands, settings: &GameSettings) {
         
         // Instructions
         parent.spawn((
-            Text::new("Keyboard Shortcuts:\n\nCtrl+S: Save Game\nCtrl+L: Load Game\nCtrl+N: New Game\nCtrl+P: Random Ship Placement\n\nESC: Close Settings"),
+            Text::new("Keyboard Shortcuts:\n\nCtrl+S: Save Game\nCtrl+L: Load Game\nCtrl+N: New Game\nCtrl+P: Random Ship Placement\nS: Toggle Sound\n\nESC: Close Settings"),
             TextFont {
                 font_size: 16.0,
                 ..default()
@@ -1007,6 +1070,48 @@ fn spawn_settings_menu(commands: &mut Commands, settings: &GameSettings) {
                 ));
             }
         }
+        
+        // Sound settings
+        parent.spawn((
+            Text::new("\nSound Settings:"),
+            TextFont {
+                font_size: 14.0,
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Node {
+                margin: UiRect::top(Val::Px(10.0)),
+                ..default()
+            },
+        ));
+        
+        let sound_status = if settings.sound_enabled {
+            format!("Sound: ON (Volume: {}%)", (settings.sound_volume * 100.0) as i32)
+        } else {
+            "Sound: OFF".to_string()
+        };
+        
+        parent.spawn((
+            Text::new(sound_status),
+            TextFont {
+                font_size: 12.0,
+                ..default()
+            },
+            TextColor(if settings.sound_enabled {
+                Color::srgb(0.6, 1.0, 0.6)
+            } else {
+                Color::srgb(0.7, 0.7, 0.7)
+            }),
+        ));
+        
+        parent.spawn((
+            Text::new("Press 'S' to toggle sound on/off"),
+            TextFont {
+                font_size: 10.0,
+                ..default()
+            },
+            TextColor(Color::srgb(0.5, 0.5, 0.5)),
+        ));
     });
 }
 
