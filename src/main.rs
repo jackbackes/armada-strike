@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use serde::{Deserialize, Serialize};
 use rand::prelude::*;
+use rand::seq::SliceRandom;
 use std::fs;
 use std::path::PathBuf;
 
@@ -81,8 +82,9 @@ struct PlacedShip {
     is_horizontal: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct SaveGame {
+    name: String,
     player_board: [[CellState; GRID_SIZE]; GRID_SIZE],
     opponent_board: [[CellState; GRID_SIZE]; GRID_SIZE],
     ship_positions: Vec<PlacedShip>,
@@ -92,12 +94,37 @@ struct SaveGame {
 #[derive(Resource)]
 struct GameSettings {
     show_settings: bool,
+    current_save: Option<String>,
+    saves: Vec<SaveGame>,
 }
 
 impl Default for GameSettings {
     fn default() -> Self {
         Self {
             show_settings: false,
+            current_save: None,
+            saves: Vec::new(),
+        }
+    }
+}
+
+impl GameSettings {
+    fn load_all_saves(&mut self) {
+        if let Ok(save_dir) = get_save_dir() {
+            self.saves.clear();
+            if let Ok(entries) = fs::read_dir(&save_dir) {
+                for entry in entries.flatten() {
+                    if let Some(file_name) = entry.file_name().to_str() {
+                        if file_name.ends_with(".json") {
+                            if let Ok(json) = fs::read_to_string(entry.path()) {
+                                if let Ok(save) = serde_json::from_str::<SaveGame>(&json) {
+                                    self.saves.push(save);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -145,22 +172,29 @@ impl GameState {
         None
     }
     
-    fn save_to_file(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn save_to_file(&self, name: Option<String>) -> Result<String, Box<dyn std::error::Error>> {
+        let save_name = name.unwrap_or_else(generate_random_name);
         let save = SaveGame {
+            name: save_name.clone(),
             player_board: self.player_board,
             opponent_board: self.opponent_board,
             ship_positions: self.ship_positions.clone(),
             ships_placed: self.ships_placed.clone(),
         };
         
-        let save_path = get_save_path()?;
+        let save_dir = get_save_dir()?;
+        fs::create_dir_all(&save_dir)?;
+        let mut save_path = save_dir;
+        save_path.push(format!("{}.json", sanitize_filename(&save_name)));
         let json = serde_json::to_string_pretty(&save)?;
         fs::write(save_path, json)?;
-        Ok(())
+        Ok(save_name)
     }
     
-    fn load_from_file(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let save_path = get_save_path()?;
+    fn load_from_file(&mut self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let save_dir = get_save_dir()?;
+        let mut save_path = save_dir;
+        save_path.push(format!("{}.json", sanitize_filename(name)));
         let json = fs::read_to_string(save_path)?;
         let save: SaveGame = serde_json::from_str(&json)?;
         
@@ -216,13 +250,46 @@ impl GameState {
     }
 }
 
-fn get_save_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn get_save_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let mut path = dirs::config_dir()
         .ok_or("Could not find config directory")?;
     path.push("battleship");
+    path.push("saves");
     fs::create_dir_all(&path)?;
-    path.push("savegame.json");
     Ok(path)
+}
+
+fn sanitize_filename(name: &str) -> String {
+    name.chars()
+        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .collect()
+}
+
+fn generate_random_name() -> String {
+    let adjectives = [
+        "swift", "mighty", "brave", "silent", "golden", "silver", "crimson", "azure",
+        "emerald", "fierce", "bold", "clever", "cunning", "daring", "noble", "proud",
+        "ancient", "mystic", "hidden", "frozen", "burning", "stormy", "peaceful", "wild",
+    ];
+    
+    let nouns = [
+        "eagle", "shark", "wolf", "tiger", "dragon", "phoenix", "kraken", "falcon",
+        "viper", "cobra", "panther", "jaguar", "lion", "bear", "raven", "hawk",
+        "thunder", "storm", "wave", "tide", "wind", "fire", "ice", "shadow",
+    ];
+    
+    let verbs = [
+        "strikes", "hunts", "soars", "prowls", "guards", "watches", "waits", "stalks",
+        "rises", "falls", "moves", "dances", "fights", "defends", "attacks", "charges",
+        "glides", "dives", "leaps", "runs", "flies", "swims", "crawls", "hides",
+    ];
+    
+    let mut rng = thread_rng();
+    let adj = adjectives.choose(&mut rng).unwrap();
+    let noun = nouns.choose(&mut rng).unwrap();
+    let verb = verbs.choose(&mut rng).unwrap();
+    
+    format!("{}-{}-{}", adj, noun, verb)
 }
 
 fn main() {
@@ -438,7 +505,8 @@ fn handle_input(
         } else {
             settings.show_settings = !settings.show_settings;
             if settings.show_settings {
-                spawn_settings_menu(&mut commands);
+                settings.load_all_saves();
+                spawn_settings_menu(&mut commands, &settings);
             } else {
                 despawn_settings_menu(&mut commands);
             }
@@ -446,24 +514,69 @@ fn handle_input(
         return;
     }
     
+    // Load specific save with number keys when settings menu is open
+    if settings.show_settings {
+        for i in 1..=5 {
+            let key = match i {
+                1 => KeyCode::Digit1,
+                2 => KeyCode::Digit2,
+                3 => KeyCode::Digit3,
+                4 => KeyCode::Digit4,
+                5 => KeyCode::Digit5,
+                _ => continue,
+            };
+            
+            if keyboard.just_pressed(key) {
+                if let Some(save) = settings.saves.get(i - 1) {
+                    let save_name = save.name.clone();
+                    if let Err(e) = game_state.load_from_file(&save_name) {
+                        eprintln!("Failed to load save {}: {}", save_name, e);
+                    } else {
+                        settings.current_save = Some(save_name.clone());
+                        settings.show_settings = false;
+                        despawn_settings_menu(&mut commands);
+                        println!("Loaded: {}", save_name);
+                    }
+                }
+                return;
+            }
+        }
+    }
+    
     // Quick shortcuts
     if keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::SuperLeft) {
         if keyboard.just_pressed(KeyCode::KeyS) {
-            if let Err(e) = game_state.save_to_file() {
-                eprintln!("Failed to save game: {}", e);
-            } else {
-                println!("Game saved successfully!");
+            match game_state.save_to_file(settings.current_save.clone()) {
+                Ok(name) => {
+                    println!("Game saved as: {}", name);
+                    settings.current_save = Some(name.clone());
+                    settings.load_all_saves();
+                }
+                Err(e) => eprintln!("Failed to save game: {}", e),
             }
         }
         if keyboard.just_pressed(KeyCode::KeyL) {
-            if let Err(e) = game_state.load_from_file() {
-                eprintln!("Failed to load game: {}", e);
+            if let Some(ref current) = settings.current_save {
+                if let Err(e) = game_state.load_from_file(current) {
+                    eprintln!("Failed to load game: {}", e);
+                } else {
+                    println!("Game loaded: {}", current);
+                }
+            } else if !settings.saves.is_empty() {
+                let first_save_name = settings.saves[0].name.clone();
+                if let Err(e) = game_state.load_from_file(&first_save_name) {
+                    eprintln!("Failed to load game: {}", e);
+                } else {
+                    settings.current_save = Some(first_save_name.clone());
+                    println!("Game loaded: {}", first_save_name);
+                }
             } else {
-                println!("Game loaded successfully!");
+                println!("No saves found");
             }
         }
         if keyboard.just_pressed(KeyCode::KeyN) {
             game_state.clear_board();
+            settings.current_save = None;
             println!("New game started!");
         }
         if keyboard.just_pressed(KeyCode::KeyP) {
@@ -773,7 +886,7 @@ fn update_cell_info(
     }
 }
 
-fn spawn_settings_menu(commands: &mut Commands) {
+fn spawn_settings_menu(commands: &mut Commands, settings: &GameSettings) {
     // Background panel
     commands.spawn((
         Node {
@@ -814,10 +927,86 @@ fn spawn_settings_menu(commands: &mut Commands) {
             },
             TextColor(Color::srgb(0.8, 0.8, 0.8)),
             Node {
-                margin: UiRect::bottom(Val::Px(30.0)),
+                margin: UiRect::bottom(Val::Px(20.0)),
                 ..default()
             },
         ));
+        
+        // Current save info
+        let current_save_text = if let Some(ref save) = settings.current_save {
+            format!("Current Save: {}", save)
+        } else {
+            "Current Save: None (New Game)".to_string()
+        };
+        
+        parent.spawn((
+            Text::new(current_save_text),
+            TextFont {
+                font_size: 14.0,
+                ..default()
+            },
+            TextColor(Color::srgb(0.6, 0.8, 1.0)),
+            Node {
+                margin: UiRect::bottom(Val::Px(15.0)),
+                ..default()
+            },
+        ));
+        
+        // Saved games list
+        parent.spawn((
+            Text::new("Saved Games:"),
+            TextFont {
+                font_size: 14.0,
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Node {
+                margin: UiRect::bottom(Val::Px(10.0)),
+                ..default()
+            },
+        ));
+        
+        if settings.saves.is_empty() {
+            parent.spawn((
+                Text::new("No saved games found"),
+                TextFont {
+                    font_size: 12.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.5, 0.5, 0.5)),
+            ));
+        } else {
+            for (i, save) in settings.saves.iter().take(5).enumerate() {
+                let prefix = if Some(&save.name) == settings.current_save.as_ref() {
+                    "→ "
+                } else {
+                    "  "
+                };
+                parent.spawn((
+                    Text::new(format!("{}{}. {}", prefix, i + 1, save.name)),
+                    TextFont {
+                        font_size: 12.0,
+                        ..default()
+                    },
+                    TextColor(if Some(&save.name) == settings.current_save.as_ref() {
+                        Color::srgb(0.6, 1.0, 0.6)
+                    } else {
+                        Color::srgb(0.7, 0.7, 0.7)
+                    }),
+                ));
+            }
+            
+            if settings.saves.len() > 5 {
+                parent.spawn((
+                    Text::new(format!("  ... and {} more", settings.saves.len() - 5)),
+                    TextFont {
+                        font_size: 12.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.5, 0.5, 0.5)),
+                ));
+            }
+        }
     });
 }
 
