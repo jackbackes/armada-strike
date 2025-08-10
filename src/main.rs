@@ -1,10 +1,15 @@
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
+use serde::{Deserialize, Serialize};
+use rand::prelude::*;
+use std::fs;
+use std::path::PathBuf;
 
 const GRID_SIZE: usize = 10;
 const CELL_SIZE: f32 = 30.0;
 const CELL_SPACING: f32 = 2.0;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 enum CellState {
     Empty,
     Ship,
@@ -12,7 +17,7 @@ enum CellState {
     Miss,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 enum ShipType {
     Carrier,    // 5
     Battleship, // 4
@@ -62,6 +67,41 @@ struct SelectedCell;
 #[derive(Component)]
 struct StatusText;
 
+#[derive(Component)]
+struct CellInfoText;
+
+#[derive(Component)]
+struct SettingsMenu;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PlacedShip {
+    ship_type: ShipType,
+    x: usize,
+    y: usize,
+    is_horizontal: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+struct SaveGame {
+    player_board: [[CellState; GRID_SIZE]; GRID_SIZE],
+    opponent_board: [[CellState; GRID_SIZE]; GRID_SIZE],
+    ship_positions: Vec<PlacedShip>,
+    ships_placed: Vec<ShipType>,
+}
+
+#[derive(Resource)]
+struct GameSettings {
+    show_settings: bool,
+}
+
+impl Default for GameSettings {
+    fn default() -> Self {
+        Self {
+            show_settings: false,
+        }
+    }
+}
+
 #[derive(Resource)]
 struct GameState {
     player_board: [[CellState; GRID_SIZE]; GRID_SIZE],
@@ -71,6 +111,7 @@ struct GameState {
     is_player_board: bool,
     placement_mode: PlacementMode,
     ships_placed: Vec<ShipType>,
+    ship_positions: Vec<PlacedShip>,
 }
 
 impl Default for GameState {
@@ -83,8 +124,105 @@ impl Default for GameState {
             is_player_board: true,
             placement_mode: PlacementMode::Playing,
             ships_placed: Vec::new(),
+            ship_positions: Vec::new(),
         }
     }
+}
+
+impl GameState {
+    fn get_ship_at(&self, x: usize, y: usize) -> Option<ShipType> {
+        for ship in &self.ship_positions {
+            if ship.is_horizontal {
+                if y == ship.y && x >= ship.x && x < ship.x + ship.ship_type.size() {
+                    return Some(ship.ship_type);
+                }
+            } else {
+                if x == ship.x && y >= ship.y && y < ship.y + ship.ship_type.size() {
+                    return Some(ship.ship_type);
+                }
+            }
+        }
+        None
+    }
+    
+    fn save_to_file(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let save = SaveGame {
+            player_board: self.player_board,
+            opponent_board: self.opponent_board,
+            ship_positions: self.ship_positions.clone(),
+            ships_placed: self.ships_placed.clone(),
+        };
+        
+        let save_path = get_save_path()?;
+        let json = serde_json::to_string_pretty(&save)?;
+        fs::write(save_path, json)?;
+        Ok(())
+    }
+    
+    fn load_from_file(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let save_path = get_save_path()?;
+        let json = fs::read_to_string(save_path)?;
+        let save: SaveGame = serde_json::from_str(&json)?;
+        
+        self.player_board = save.player_board;
+        self.opponent_board = save.opponent_board;
+        self.ship_positions = save.ship_positions;
+        self.ships_placed = save.ships_placed;
+        Ok(())
+    }
+    
+    fn place_random_ships(&mut self) {
+        let mut rng = thread_rng();
+        self.clear_board();
+        
+        let ships = [
+            ShipType::Carrier,
+            ShipType::Battleship,
+            ShipType::Cruiser,
+            ShipType::Submarine,
+            ShipType::Destroyer,
+        ];
+        
+        for ship_type in ships.iter() {
+            let mut placed = false;
+            let mut attempts = 0;
+            
+            while !placed && attempts < 100 {
+                let x = rng.gen_range(0..GRID_SIZE);
+                let y = rng.gen_range(0..GRID_SIZE);
+                let is_horizontal = rng.gen_bool(0.5);
+                
+                if can_place_ship(&self.player_board, x, y, ship_type.size(), is_horizontal) {
+                    place_ship(&mut self.player_board, x, y, ship_type.size(), is_horizontal);
+                    self.ship_positions.push(PlacedShip {
+                        ship_type: *ship_type,
+                        x,
+                        y,
+                        is_horizontal,
+                    });
+                    self.ships_placed.push(*ship_type);
+                    placed = true;
+                }
+                attempts += 1;
+            }
+        }
+    }
+    
+    fn clear_board(&mut self) {
+        self.player_board = [[CellState::Empty; GRID_SIZE]; GRID_SIZE];
+        self.opponent_board = [[CellState::Empty; GRID_SIZE]; GRID_SIZE];
+        self.ships_placed.clear();
+        self.ship_positions.clear();
+    }
+}
+
+fn get_save_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let mut path = dirs::config_dir()
+        .ok_or("Could not find config directory")?;
+    path.push("battleship");
+    fs::create_dir_all(&path)?;
+    path.push("savegame.json");
+    Ok(path)
 }
 
 fn main() {
@@ -98,13 +236,17 @@ fn main() {
             ..default()
         }))
         .init_resource::<GameState>()
+        .init_resource::<GameSettings>()
         .add_systems(Startup, setup)
         .add_systems(Update, (
             handle_input,
+            handle_mouse_click,
             update_cell_colors,
             update_selection_indicator,
             update_status_text,
+            update_cell_info,
             show_ship_preview,
+            handle_settings_menu,
         ))
         .run();
 }
@@ -249,6 +391,18 @@ fn setup(mut commands: Commands) {
         SelectedCell,
     ));
 
+    // Cell info status bar
+    commands.spawn((
+        Text2d::new("Cell: A1 | Board: Your Board | State: Empty"),
+        TextFont {
+            font_size: 18.0,
+            ..default()
+        },
+        TextColor(Color::srgb(1.0, 1.0, 0.5)),
+        Transform::from_xyz(0.0, -250.0, 0.0),
+        CellInfoText,
+    ));
+    
     commands.spawn((
         Text2d::new("Press 1-5 to place ships | Arrow keys: Move | Space: Rotate | Enter: Place | ESC: Cancel"),
         TextFont {
@@ -274,7 +428,50 @@ fn setup(mut commands: Commands) {
 fn handle_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut game_state: ResMut<GameState>,
+    mut settings: ResMut<GameSettings>,
+    mut commands: Commands,
 ) {
+    // Toggle settings menu with Escape
+    if keyboard.just_pressed(KeyCode::Escape) {
+        if matches!(game_state.placement_mode, PlacementMode::PlacingShip(_, _)) {
+            game_state.placement_mode = PlacementMode::Playing;
+        } else {
+            settings.show_settings = !settings.show_settings;
+            if settings.show_settings {
+                spawn_settings_menu(&mut commands);
+            } else {
+                despawn_settings_menu(&mut commands);
+            }
+        }
+        return;
+    }
+    
+    // Quick shortcuts
+    if keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::SuperLeft) {
+        if keyboard.just_pressed(KeyCode::KeyS) {
+            if let Err(e) = game_state.save_to_file() {
+                eprintln!("Failed to save game: {}", e);
+            } else {
+                println!("Game saved successfully!");
+            }
+        }
+        if keyboard.just_pressed(KeyCode::KeyL) {
+            if let Err(e) = game_state.load_from_file() {
+                eprintln!("Failed to load game: {}", e);
+            } else {
+                println!("Game loaded successfully!");
+            }
+        }
+        if keyboard.just_pressed(KeyCode::KeyN) {
+            game_state.clear_board();
+            println!("New game started!");
+        }
+        if keyboard.just_pressed(KeyCode::KeyP) {
+            game_state.place_random_ships();
+            println!("Ships placed randomly!");
+        }
+    }
+    
     if keyboard.just_pressed(KeyCode::ArrowUp) && game_state.selected_y < GRID_SIZE - 1 {
         game_state.selected_y += 1;
     }
@@ -294,16 +491,18 @@ fn handle_input(
                 game_state.placement_mode = PlacementMode::PlacingShip(ship_type, !is_horizontal);
             }
             
-            if keyboard.just_pressed(KeyCode::Escape) {
-                game_state.placement_mode = PlacementMode::Playing;
-            }
-            
             if keyboard.just_pressed(KeyCode::Enter) {
                 let x = game_state.selected_x;
                 let y = game_state.selected_y;
                 if can_place_ship(&game_state.player_board, x, y, ship_type.size(), is_horizontal) {
                     place_ship(&mut game_state.player_board, x, y, ship_type.size(), is_horizontal);
                     game_state.ships_placed.push(ship_type);
+                    game_state.ship_positions.push(PlacedShip {
+                        ship_type,
+                        x,
+                        y,
+                        is_horizontal,
+                    });
                     game_state.placement_mode = PlacementMode::Playing;
                 }
             }
@@ -367,7 +566,52 @@ fn handle_input(
                 game_state.player_board = [[CellState::Empty; GRID_SIZE]; GRID_SIZE];
                 game_state.opponent_board = [[CellState::Empty; GRID_SIZE]; GRID_SIZE];
                 game_state.ships_placed.clear();
+                game_state.ship_positions.clear();
             }
+        }
+    }
+}
+
+fn handle_mouse_click(
+    buttons: Res<ButtonInput<MouseButton>>,
+    q_windows: Query<&Window, With<PrimaryWindow>>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    q_cells: Query<(&Cell, &Transform)>,
+    mut game_state: ResMut<GameState>,
+) {
+    if !buttons.just_pressed(MouseButton::Left) {
+        return;
+    }
+
+    let Ok(window) = q_windows.single() else {
+        return;
+    };
+
+    let Some(cursor_position) = window.cursor_position() else {
+        return;
+    };
+
+    let Ok((camera, camera_transform)) = q_camera.single() else {
+        return;
+    };
+
+    let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+        return;
+    };
+
+    for (cell, transform) in q_cells.iter() {
+        let half_size = CELL_SIZE / 2.0;
+        let min_x = transform.translation.x - half_size;
+        let max_x = transform.translation.x + half_size;
+        let min_y = transform.translation.y - half_size;
+        let max_y = transform.translation.y + half_size;
+
+        if world_position.x >= min_x && world_position.x <= max_x &&
+           world_position.y >= min_y && world_position.y <= max_y {
+            game_state.selected_x = cell.x;
+            game_state.selected_y = cell.y;
+            game_state.is_player_board = cell.is_player_board;
+            break;
         }
     }
 }
@@ -486,6 +730,110 @@ fn update_status_text(
                 }
             }
         };
+    }
+}
+
+fn update_cell_info(
+    game_state: Res<GameState>,
+    mut query: Query<&mut Text2d, With<CellInfoText>>,
+) {
+    if let Ok(mut text) = query.single_mut() {
+        let col = (b'A' + game_state.selected_x as u8) as char;
+        let row = GRID_SIZE - game_state.selected_y;
+        let coord = format!("{}{}", col, row);
+        
+        let board_name = if game_state.is_player_board {
+            "Your Board"
+        } else {
+            "Opponent's Board"
+        };
+        
+        let state = if game_state.is_player_board {
+            game_state.player_board[game_state.selected_y][game_state.selected_x]
+        } else {
+            game_state.opponent_board[game_state.selected_y][game_state.selected_x]
+        };
+        
+        let state_str = match state {
+            CellState::Empty => "Empty",
+            CellState::Ship => "Ship",
+            CellState::Hit => "Hit",
+            CellState::Miss => "Miss",
+        };
+        
+        let mut info = format!("Cell: {} | Board: {} | State: {}", coord, board_name, state_str);
+        
+        if game_state.is_player_board && state == CellState::Ship {
+            if let Some(ship_type) = game_state.get_ship_at(game_state.selected_x, game_state.selected_y) {
+                info.push_str(&format!(" | Ship: {}", ship_type.name()));
+            }
+        }
+        
+        text.0 = info;
+    }
+}
+
+fn spawn_settings_menu(commands: &mut Commands) {
+    // Background panel
+    commands.spawn((
+        Node {
+            width: Val::Px(400.0),
+            height: Val::Px(500.0),
+            position_type: PositionType::Absolute,
+            left: Val::Percent(50.0),
+            top: Val::Percent(50.0),
+            margin: UiRect::all(Val::Px(-200.0)),
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
+            padding: UiRect::all(Val::Px(20.0)),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.95)),
+        SettingsMenu,
+    )).with_children(|parent| {
+        // Title
+        parent.spawn((
+            Text::new("Game Settings"),
+            TextFont {
+                font_size: 24.0,
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Node {
+                margin: UiRect::bottom(Val::Px(20.0)),
+                ..default()
+            },
+        ));
+        
+        // Instructions
+        parent.spawn((
+            Text::new("Keyboard Shortcuts:\n\nCtrl+S: Save Game\nCtrl+L: Load Game\nCtrl+N: New Game\nCtrl+P: Random Ship Placement\n\nESC: Close Settings"),
+            TextFont {
+                font_size: 16.0,
+                ..default()
+            },
+            TextColor(Color::srgb(0.8, 0.8, 0.8)),
+            Node {
+                margin: UiRect::bottom(Val::Px(30.0)),
+                ..default()
+            },
+        ));
+    });
+}
+
+fn despawn_settings_menu(_commands: &mut Commands) {
+    // Will be handled by a separate system
+}
+
+fn handle_settings_menu(
+    settings: Res<GameSettings>,
+    query: Query<Entity, With<SettingsMenu>>,
+    mut commands: Commands,
+) {
+    if !settings.show_settings {
+        for entity in query.iter() {
+            commands.entity(entity).despawn();
+        }
     }
 }
 
