@@ -81,7 +81,7 @@ struct SoundAssets {
     miss: Handle<AudioSource>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct PlacedShip {
     ship_type: ShipType,
     x: usize,
@@ -181,6 +181,50 @@ impl GameState {
             }
         }
         None
+    }
+    
+    fn get_ship_info_at(&self, x: usize, y: usize) -> Option<&PlacedShip> {
+        for ship in &self.ship_positions {
+            if ship.is_horizontal {
+                if y == ship.y && x >= ship.x && x < ship.x + ship.ship_type.size() {
+                    return Some(ship);
+                }
+            } else {
+                if x == ship.x && y >= ship.y && y < ship.y + ship.ship_type.size() {
+                    return Some(ship);
+                }
+            }
+        }
+        None
+    }
+    
+    fn ship_has_hits(&self, ship: &PlacedShip) -> bool {
+        if ship.is_horizontal {
+            for i in 0..ship.ship_type.size() {
+                if self.player_board[ship.y][ship.x + i] == CellState::Hit {
+                    return true;
+                }
+            }
+        } else {
+            for i in 0..ship.ship_type.size() {
+                if self.player_board[ship.y + i][ship.x] == CellState::Hit {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+    
+    fn clear_entire_ship(&mut self, ship: &PlacedShip) {
+        if ship.is_horizontal {
+            for i in 0..ship.ship_type.size() {
+                self.player_board[ship.y][ship.x + i] = CellState::Empty;
+            }
+        } else {
+            for i in 0..ship.ship_type.size() {
+                self.player_board[ship.y + i][ship.x] = CellState::Empty;
+            }
+        }
     }
     
     fn save_to_file(&self, name: Option<String>) -> Result<String, Box<dyn std::error::Error>> {
@@ -718,7 +762,27 @@ fn handle_input(
                     }
                 }
                 if keyboard.just_pressed(KeyCode::KeyC) {
-                    game_state.player_board[y][x] = CellState::Empty;
+                    let current_state = game_state.player_board[y][x];
+                    
+                    // First, if it's a hit or miss, just clear it back to ship or empty
+                    if current_state == CellState::Hit {
+                        game_state.player_board[y][x] = CellState::Ship;
+                    } else if current_state == CellState::Miss {
+                        game_state.player_board[y][x] = CellState::Empty;
+                    } else if current_state == CellState::Ship {
+                        // If it's a ship cell, check if we should clear the entire ship
+                        if let Some(ship) = game_state.get_ship_info_at(x, y).cloned() {
+                            // Only clear the entire ship if it has no hits
+                            if !game_state.ship_has_hits(&ship) {
+                                game_state.clear_entire_ship(&ship);
+                                // Also remove from placed ships
+                                game_state.ship_positions.retain(|s| {
+                                    !(s.x == ship.x && s.y == ship.y && s.ship_type == ship.ship_type)
+                                });
+                                game_state.ships_placed.retain(|&t| t != ship.ship_type);
+                            }
+                        }
+                    }
                 }
             } else {
                 if keyboard.just_pressed(KeyCode::KeyH) {
@@ -734,7 +798,12 @@ fn handle_input(
                     }
                 }
                 if keyboard.just_pressed(KeyCode::KeyC) {
-                    game_state.opponent_board[y][x] = CellState::Empty;
+                    let current_state = game_state.opponent_board[y][x];
+                    
+                    // On opponent board, just clear hits and misses
+                    if current_state == CellState::Hit || current_state == CellState::Miss {
+                        game_state.opponent_board[y][x] = CellState::Empty;
+                    }
                 }
             }
 
