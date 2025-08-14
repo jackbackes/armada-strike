@@ -1,0 +1,23 @@
+# Configuration for cross-compilation using the `cross` tool
+# Install cross with: cargo install cross
+# Then use: cross build --target <target> --release
+
+[build]
+pre-build = ["apt-get update && apt-get install -y libasound2-dev libudev-dev"]
+
+[target.x86_64-pc-windows-gnu]
+image = "ghcr.io/cross-rs/x86_64-pc-windows-gnu:main"
+
+[target.i686-pc-windows-gnu]
+image = "ghcr.io/cross-rs/i686-pc-windows-gnu:main"
+
+[target.x86_64-unknown-linux-gnu]
+image = "ghcr.io/cross-rs/x86_64-unknown-linux-gnu:main"
+pre-build = ["apt-get update && apt-get install -y libasound2-dev libudev-dev pkg-config"]
+
+[target.x86_64-unknown-linux-musl]
+image = "ghcr.io/cross-rs/x86_64-unknown-linux-musl:main"
+
+[target.aarch64-unknown-linux-gnu]
+image = "ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main"
+pre-build = ["apt-get update && apt-get install -y libasound2-dev libudev-dev pkg-config"]
