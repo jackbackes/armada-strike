@@ -62,9 +62,45 @@ Your game will be in:
 
 ## Building for Other Computers (Cross-Compilation)
 
-Want to build a Windows version on your Mac? It's possible but tricky!
+Want to build a Windows version on your Mac? Or a Linux version on Windows? We've made it easy!
 
-### For Mac Users Building for Windows:
+### Method 1: Using Our Build Scripts (Easiest!)
+
+We have special scripts that handle all the complexity:
+
+```bash
+# Test what platforms you can build for
+make test-cross
+
+# Build for Windows (from Mac/Linux)
+make windows         # Both 32-bit and 64-bit
+make windows-x64     # 64-bit only
+make windows-x86     # 32-bit only
+
+# Build for all platforms using Docker
+make cross-build     # Builds Windows + Linux versions
+make build-all       # Builds EVERYTHING
+```
+
+### Method 2: Using Docker (Most Reliable)
+
+Docker is like a computer inside your computer! It can pretend to be any operating system:
+
+1. **Install Docker Desktop** from https://docker.com
+2. **Start Docker Desktop**
+3. **Run our cross-build script:**
+```bash
+./build_cross_platform.sh --all
+```
+
+This creates:
+- `dist/armada-strike-x86_64-pc-windows-gnu.zip` (Windows 64-bit)
+- `dist/armada-strike-i686-pc-windows-gnu.zip` (Windows 32-bit)
+- `dist/armada-strike-x86_64-unknown-linux-gnu.tar.gz` (Linux)
+
+### Method 3: Manual Cross-Compilation (Advanced)
+
+#### For Mac Users Building for Windows:
 ```bash
 # Install the Windows target
 rustup target add x86_64-pc-windows-gnu
@@ -74,10 +110,33 @@ brew install mingw-w64
 
 # Build for Windows
 cargo build --release --target x86_64-pc-windows-gnu
+
+# Or use our script
+./build_windows.sh
 ```
 
-### For Windows Users Building for Mac:
-This is much harder! Usually need a Mac or use GitHub Actions (we'll cover that later).
+#### For Windows Users Building for Linux:
+```bash
+# Install WSL2 (Windows Subsystem for Linux) first
+# Then in WSL2:
+cargo build --release
+
+# Or use Docker method above
+```
+
+### Understanding Cross-Compilation
+
+Think of it like translating a book:
+- Your code is written in Rust (like English)
+- Each computer type needs a different translation
+- The compiler does the translation
+- Cross-compilation = translating for a computer you don't have!
+
+**Target Triple:** `x86_64-pc-windows-gnu`
+- `x86_64` = 64-bit processor (or `i686` for 32-bit)
+- `pc` = Personal Computer
+- `windows` = Operating System
+- `gnu` = Toolchain type (or `msvc` for Microsoft's)
 
 ## Creating an Installer for Mac (.dmg file)
 

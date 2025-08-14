@@ -16,18 +16,29 @@ A modern naval combat strategy game inspired by the classic children's game. Bui
 2. Take turns targeting enemy positions
 3. First to sink all enemy ships wins!
 
-## Building
+## Quick Start
+
+See [GETTING_STARTED.md](GETTING_STARTED.md) for detailed platform-specific instructions.
+
+### Building
 
 ```bash
 # Development build
 cargo run
 
-# Release build for macOS
+# Release build for your platform
 make release
 
-# Create DMG installer (macOS)
-make dmg
+# Platform-specific builds
+make dmg          # macOS installer
+make windows      # Windows build (cross-compile)
+make cross-build  # All platforms via Docker
+
+# See all options
+make help
 ```
+
+For detailed build instructions, see [BUILDING.md](BUILDING.md).
 
 ## Controls
 
