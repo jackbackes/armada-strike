@@ -6,13 +6,13 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}Creating Battleship.app bundle and DMG installer...${NC}"
+echo -e "${GREEN}Creating ArmadaStrike.app bundle and DMG installer...${NC}"
 
 # Variables
-APP_NAME="Battleship"
+APP_NAME="ArmadaStrike"
 APP_BUNDLE="$APP_NAME.app"
-DMG_NAME="Battleship-Installer.dmg"
-VOLUME_NAME="Battleship Installer"
+DMG_NAME="ArmadaStrike-Installer.dmg"
+VOLUME_NAME="Armada Strike Installer"
 BUILD_DIR="dmg_build"
 
 # Clean up any existing build
@@ -27,22 +27,22 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 # Copy the binary
 echo "Copying binary..."
 # Check for platform-specific release binary first, then generic location
-if [ -f "target/aarch64-apple-darwin/release/battleship" ]; then
-    cp "target/aarch64-apple-darwin/release/battleship" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+if [ -f "target/aarch64-apple-darwin/release/armada-strike" ]; then
+    cp "target/aarch64-apple-darwin/release/armada-strike" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
     chmod +x "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
-elif [ -f "target/x86_64-apple-darwin/release/battleship" ]; then
-    cp "target/x86_64-apple-darwin/release/battleship" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+elif [ -f "target/x86_64-apple-darwin/release/armada-strike" ]; then
+    cp "target/x86_64-apple-darwin/release/armada-strike" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
     chmod +x "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
-elif [ -f "target/release/battleship" ]; then
-    cp "target/release/battleship" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+elif [ -f "target/release/armada-strike" ]; then
+    cp "target/release/armada-strike" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
     chmod +x "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 else
     echo -e "${RED}Error: Release binary not found${NC}"
     echo "Please run 'cargo build --release' first"
     echo "Searched in:"
-    echo "  - target/aarch64-apple-darwin/release/battleship"
-    echo "  - target/x86_64-apple-darwin/release/battleship"
-    echo "  - target/release/battleship"
+    echo "  - target/aarch64-apple-darwin/release/armada-strike"
+    echo "  - target/x86_64-apple-darwin/release/armada-strike"
+    echo "  - target/release/armada-strike"
     exit 1
 fi
 
@@ -64,7 +64,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
     <key>CFBundleExecutable</key>
     <string>$APP_NAME</string>
     <key>CFBundleIdentifier</key>
-    <string>com.battleship.game</string>
+    <string>com.armadastrike.game</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
@@ -86,15 +86,15 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << EOF
 EOF
 
 # Create an icon if the Python script exists and hasn't been run
-if [ -f "create_icon.py" ] && [ ! -f "Battleship.icns" ]; then
+if [ -f "create_icon.py" ] && [ ! -f "ArmadaStrike.icns" ]; then
     echo "Generating icon..."
     if [ -d "venv" ]; then
         source venv/bin/activate
         python3 create_icon.py 2>/dev/null
         deactivate
         # Create icns from iconset if it was generated
-        if [ -d "Battleship.iconset" ]; then
-            iconutil -c icns Battleship.iconset 2>/dev/null
+        if [ -d "ArmadaStrike.iconset" ]; then
+            iconutil -c icns ArmadaStrike.iconset 2>/dev/null
         fi
     else
         echo -e "${YELLOW}Warning: Python venv not found. Run ./setup_asset_env.sh first${NC}"
@@ -102,13 +102,13 @@ if [ -f "create_icon.py" ] && [ ! -f "Battleship.icns" ]; then
 fi
 
 # If we have an icns file, use it; otherwise try png
-if [ -f "Battleship.icns" ]; then
-    cp "Battleship.icns" "$APP_BUNDLE/Contents/Resources/Battleship.icns"
+if [ -f "ArmadaStrike.icns" ]; then
+    cp "ArmadaStrike.icns" "$APP_BUNDLE/Contents/Resources/ArmadaStrike.icns"
     # Update Info.plist to reference the icon after it's copied
-    /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string Battleship" "$APP_BUNDLE/Contents/Info.plist" 2>/dev/null || \
-    /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile Battleship" "$APP_BUNDLE/Contents/Info.plist"
-elif [ -f "battleship_icon.png" ]; then
-    cp "battleship_icon.png" "$APP_BUNDLE/Contents/Resources/icon.png"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string ArmadaStrike" "$APP_BUNDLE/Contents/Info.plist" 2>/dev/null || \
+    /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile ArmadaStrike" "$APP_BUNDLE/Contents/Info.plist"
+elif [ -f "armada_strike_icon.png" ]; then
+    cp "armada_strike_icon.png" "$APP_BUNDLE/Contents/Resources/icon.png"
 fi
 
 # Create the DMG
@@ -139,9 +139,9 @@ if [ -f "$DMG_NAME" ]; then
     echo ""
     echo "To install:"
     echo "1. Double-click $DMG_NAME"
-    echo "2. Drag Battleship.app to the Applications folder"
+    echo "2. Drag ArmadaStrike.app to the Applications folder"
     echo "3. Eject the installer"
-    echo "4. Launch Battleship from Applications"
+    echo "4. Launch Armada Strike from Applications"
 else
     echo -e "${RED}❌ Failed to create DMG${NC}"
     exit 1

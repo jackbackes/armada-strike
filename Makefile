@@ -13,7 +13,7 @@ assets: setup
 	@echo "Generating assets..."
 	@source venv/bin/activate && \
 		python3 create_icon.py && \
-		([ -d "Battleship.iconset" ] && iconutil -c icns Battleship.iconset || true) && \
+		([ -d "ArmadaStrike.iconset" ] && iconutil -c icns ArmadaStrike.iconset || true) && \
 		([ -f "generate_sounds.py" ] && [ ! -d "assets/sounds" ] && python3 generate_sounds.py || true) && \
 		deactivate
 	@echo "✅ Assets generated"
@@ -40,8 +40,8 @@ dmg: release
 clean:
 	@echo "Cleaning build artifacts..."
 	@cargo clean
-	@rm -rf Battleship.app Battleship-Installer.dmg
-	@rm -rf Battleship.iconset battleship_icon.png Battleship.icns
+	@rm -rf ArmadaStrike.app ArmadaStrike-Installer.dmg
+	@rm -rf ArmadaStrike.iconset armada_strike_icon.png ArmadaStrike.icns
 	@rm -rf venv __pycache__
 	@echo "✅ Clean complete"
 
@@ -51,19 +51,19 @@ run:
 
 # Run the game (release mode)
 run-release: release
-	@if [ -f "target/aarch64-apple-darwin/release/battleship" ]; then \
-		target/aarch64-apple-darwin/release/battleship; \
-	elif [ -f "target/x86_64-apple-darwin/release/battleship" ]; then \
-		target/x86_64-apple-darwin/release/battleship; \
-	elif [ -f "target/release/battleship" ]; then \
-		target/release/battleship; \
+	@if [ -f "target/aarch64-apple-darwin/release/armada-strike" ]; then \
+		target/aarch64-apple-darwin/release/armada-strike; \
+	elif [ -f "target/x86_64-apple-darwin/release/armada-strike" ]; then \
+		target/x86_64-apple-darwin/release/armada-strike; \
+	elif [ -f "target/release/armada-strike" ]; then \
+		target/release/armada-strike; \
 	else \
 		echo "Release binary not found. Run 'make release' first."; \
 	fi
 
 # Show help
 help:
-	@echo "Battleship Build System"
+	@echo "Armada Strike Build System"
 	@echo "======================="
 	@echo ""
 	@echo "Available targets:"

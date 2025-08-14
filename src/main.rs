@@ -337,7 +337,7 @@ impl GameState {
 fn get_save_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let mut path = dirs::config_dir()
         .ok_or("Could not find config directory")?;
-    path.push("battleship");
+    path.push("armada-strike");
     path.push("saves");
     fs::create_dir_all(&path)?;
     Ok(path)
@@ -380,7 +380,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "Battleship Tracker".to_string(),
+                title: "Armada Strike".to_string(),
                 resolution: (1000.0, 700.0).into(),
                 ..default()
             }),

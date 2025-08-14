@@ -8,7 +8,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}    Battleship Release Build Script     ${NC}"
+echo -e "${BLUE}    Armada Strike Release Build Script    ${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
@@ -32,7 +32,7 @@ echo -e "${YELLOW}Step 2: Generating assets...${NC}"
 if [ -f "create_icon.py" ]; then
     echo "  Generating app icon..."
     python3 create_icon.py
-    if [ -f "battleship_icon.png" ]; then
+    if [ -f "armada_strike_icon.png" ]; then
         echo -e "${GREEN}  ✅ Icon generated${NC}"
     else
         echo -e "${RED}  ⚠️  Icon generation failed${NC}"
@@ -79,12 +79,12 @@ echo -e "${GREEN}         Build Complete!                ${NC}"
 echo -e "${GREEN}========================================${NC}"
 
 # Find the binary and report its location
-if [ -f "target/aarch64-apple-darwin/release/battleship" ]; then
-    BINARY_PATH="target/aarch64-apple-darwin/release/battleship"
-elif [ -f "target/x86_64-apple-darwin/release/battleship" ]; then
-    BINARY_PATH="target/x86_64-apple-darwin/release/battleship"
-elif [ -f "target/release/battleship" ]; then
-    BINARY_PATH="target/release/battleship"
+if [ -f "target/aarch64-apple-darwin/release/armada-strike" ]; then
+    BINARY_PATH="target/aarch64-apple-darwin/release/armada-strike"
+elif [ -f "target/x86_64-apple-darwin/release/armada-strike" ]; then
+    BINARY_PATH="target/x86_64-apple-darwin/release/armada-strike"
+elif [ -f "target/release/armada-strike" ]; then
+    BINARY_PATH="target/release/armada-strike"
 fi
 
 if [ -n "$BINARY_PATH" ]; then
@@ -92,9 +92,9 @@ if [ -n "$BINARY_PATH" ]; then
     echo -e "${GREEN}Binary: $BINARY_PATH (${BINARY_SIZE})${NC}"
 fi
 
-if [ -f "Battleship-Installer.dmg" ]; then
-    DMG_SIZE=$(du -h "Battleship-Installer.dmg" | cut -f1)
-    echo -e "${GREEN}DMG: Battleship-Installer.dmg (${DMG_SIZE})${NC}"
+if [ -f "ArmadaStrike-Installer.dmg" ]; then
+    DMG_SIZE=$(du -h "ArmadaStrike-Installer.dmg" | cut -f1)
+    echo -e "${GREEN}DMG: ArmadaStrike-Installer.dmg (${DMG_SIZE})${NC}"
 fi
 
 echo ""
@@ -102,4 +102,4 @@ echo "To run the game:"
 echo "  $BINARY_PATH"
 echo ""
 echo "To distribute:"
-echo "  Share the Battleship-Installer.dmg file"
+echo "  Share the ArmadaStrike-Installer.dmg file"

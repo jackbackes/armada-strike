@@ -2,8 +2,8 @@
 import numpy as np
 from PIL import Image, ImageDraw
 
-def create_battleship_icon():
-    """Create a pixel art battleship icon"""
+def create_armada_strike_icon():
+    """Create a pixel art naval combat icon for Armada Strike"""
     # Create a 16x16 pixel art base (will be scaled up)
     size = 16
     icon = Image.new('RGBA', (size, size), (0, 0, 0, 0))
@@ -65,7 +65,7 @@ def create_battleship_icon():
 
 def create_icns_file():
     """Create .icns file for macOS"""
-    icons = create_battleship_icon()
+    icons = create_armada_strike_icon()
     
     # Save as PNG files first
     icon_files = []
@@ -76,7 +76,7 @@ def create_icns_file():
         icon_files.append(filename)
     
     # Also save the main icon for other uses
-    icons[4].save("battleship_icon.png")  # 256x256 version
+    icons[4].save("armada_strike_icon.png")  # 256x256 version
     
     print("Icon PNG files created!")
     
@@ -84,7 +84,7 @@ def create_icns_file():
     import os
     import shutil
     
-    iconset_dir = "Battleship.iconset"
+    iconset_dir = "ArmadaStrike.iconset"
     if os.path.exists(iconset_dir):
         shutil.rmtree(iconset_dir)
     os.makedirs(iconset_dir)
@@ -116,7 +116,7 @@ def create_icns_file():
     icons[6].save(f"{iconset_dir}/icon_512x512@2x.png")
     
     print(f"Iconset directory '{iconset_dir}' created!")
-    print("Run 'iconutil -c icns Battleship.iconset' to create the .icns file")
+    print("Run 'iconutil -c icns ArmadaStrike.iconset' to create the .icns file")
     
     # Clean up temporary files
     for f in icon_files:
